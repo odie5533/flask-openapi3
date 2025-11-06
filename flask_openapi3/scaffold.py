@@ -62,6 +62,7 @@ class APIScaffold:
         view_kwargs=None,
         responses: ResponseDict | None = None,
         validate_response: bool | None = None,
+        validation_error_callback: Callable | None = None,
     ):
         is_coroutine_function = inspect.iscoroutinefunction(func)
         if is_coroutine_function:
@@ -80,6 +81,7 @@ class APIScaffold:
                         body=body,
                         raw=raw,
                         path_kwargs=kwargs,
+                        validation_error_callback=validation_error_callback,
                     )
 
                 # handle async request
@@ -123,6 +125,7 @@ class APIScaffold:
                         body=body,
                         raw=raw,
                         path_kwargs=kwargs,
+                        validation_error_callback=validation_error_callback,
                     )
 
                 # handle request
@@ -171,6 +174,7 @@ class APIScaffold:
         servers: list[Server] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
+        validation_error_callback: Callable | None = None,
         doc_ui: bool = True,
         **options: Any,
     ) -> Callable:
@@ -192,6 +196,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            validation_error_callback: Callback function for handling validation errors at the route level.
         """
 
         def decorator(func) -> Callable:
@@ -213,6 +218,7 @@ class APIScaffold:
             )
 
             _validate_response = validate_response if validate_response is not None else self.get_validate_response()
+            _validation_error_callback = validation_error_callback if validation_error_callback is not None else getattr(self, "validation_error_callback", None)
             view_func = self.create_view_func(
                 func,
                 header,
@@ -224,6 +230,7 @@ class APIScaffold:
                 raw,
                 responses=responses,
                 validate_response=_validate_response,
+                validation_error_callback=_validation_error_callback,
             )
 
             options.update({"methods": [HTTPMethod.GET]})
@@ -248,6 +255,7 @@ class APIScaffold:
         servers: list[Server] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
+        validation_error_callback: Callable | None = None,
         doc_ui: bool = True,
         **options: Any,
     ) -> Callable:
@@ -269,6 +277,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            validation_error_callback: Callback function for handling validation errors at the route level.
         """
 
         def decorator(func) -> Callable:
@@ -290,6 +299,7 @@ class APIScaffold:
             )
 
             _validate_response = validate_response if validate_response is not None else self.get_validate_response()
+            _validation_error_callback = validation_error_callback if validation_error_callback is not None else getattr(self, "validation_error_callback", None)
             view_func = self.create_view_func(
                 func,
                 header,
@@ -301,6 +311,7 @@ class APIScaffold:
                 raw,
                 responses=responses,
                 validate_response=_validate_response,
+                validation_error_callback=_validation_error_callback,
             )
 
             options.update({"methods": [HTTPMethod.POST]})
@@ -325,6 +336,7 @@ class APIScaffold:
         servers: list[Server] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
+        validation_error_callback: Callable | None = None,
         doc_ui: bool = True,
         **options: Any,
     ) -> Callable:
@@ -346,6 +358,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            validation_error_callback: Callback function for handling validation errors at the route level.
         """
 
         def decorator(func) -> Callable:
@@ -367,6 +380,7 @@ class APIScaffold:
             )
 
             _validate_response = validate_response if validate_response is not None else self.get_validate_response()
+            _validation_error_callback = validation_error_callback if validation_error_callback is not None else getattr(self, "validation_error_callback", None)
             view_func = self.create_view_func(
                 func,
                 header,
@@ -378,6 +392,7 @@ class APIScaffold:
                 raw,
                 responses=responses,
                 validate_response=_validate_response,
+                validation_error_callback=_validation_error_callback,
             )
 
             options.update({"methods": [HTTPMethod.PUT]})
@@ -402,6 +417,7 @@ class APIScaffold:
         servers: list[Server] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
+        validation_error_callback: Callable | None = None,
         doc_ui: bool = True,
         **options: Any,
     ) -> Callable:
@@ -423,6 +439,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            validation_error_callback: Callback function for handling validation errors at the route level.
         """
 
         def decorator(func) -> Callable:
@@ -444,6 +461,7 @@ class APIScaffold:
             )
 
             _validate_response = validate_response if validate_response is not None else self.get_validate_response()
+            _validation_error_callback = validation_error_callback if validation_error_callback is not None else getattr(self, "validation_error_callback", None)
             view_func = self.create_view_func(
                 func,
                 header,
@@ -455,6 +473,7 @@ class APIScaffold:
                 raw,
                 responses=responses,
                 validate_response=_validate_response,
+                validation_error_callback=_validation_error_callback,
             )
 
             options.update({"methods": [HTTPMethod.DELETE]})
@@ -479,6 +498,7 @@ class APIScaffold:
         servers: list[Server] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
+        validation_error_callback: Callable | None = None,
         doc_ui: bool = True,
         **options: Any,
     ) -> Callable:
@@ -500,6 +520,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            validation_error_callback: Callback function for handling validation errors at the route level.
         """
 
         def decorator(func) -> Callable:
@@ -521,6 +542,7 @@ class APIScaffold:
             )
 
             _validate_response = validate_response if validate_response is not None else self.get_validate_response()
+            _validation_error_callback = validation_error_callback if validation_error_callback is not None else getattr(self, "validation_error_callback", None)
             view_func = self.create_view_func(
                 func,
                 header,
@@ -532,6 +554,7 @@ class APIScaffold:
                 raw,
                 responses=responses,
                 validate_response=_validate_response,
+                validation_error_callback=_validation_error_callback,
             )
 
             options.update({"methods": [HTTPMethod.PATCH]})

@@ -166,6 +166,7 @@ def _validate_request(
     body: Type[BaseModel] | None = None,
     raw: Type[BaseModel] | None = None,
     path_kwargs: dict[Any, Any] | None = None,
+    validation_error_callback=None,
 ) -> dict:
     """
     Validate requests and responses.
@@ -207,7 +208,9 @@ def _validate_request(
             func_kwargs["raw"] = request
     except ValidationError as e:
         # Create a response with validation error details
-        validation_error_callback = getattr(current_app, "validation_error_callback")
+        # Priority: route-level > blueprint-level > app-level
+        if validation_error_callback is None:
+            validation_error_callback = getattr(current_app, "validation_error_callback")
         abort(validation_error_callback(e))
 
     return func_kwargs

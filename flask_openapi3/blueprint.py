@@ -34,6 +34,7 @@ class APIBlueprint(APIScaffold, Blueprint):
         doc_ui: bool = True,
         operation_id_callback: Callable = get_operation_id_for_path,
         validate_response: bool | None = None,
+        validation_error_callback: Callable | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -51,6 +52,7 @@ class APIBlueprint(APIScaffold, Blueprint):
                                    Receives name (str), path (str) and method (str) parameters.
                                    Defaults to `get_operation_id_for_path` from utils
             validate_response: Verify the response body.
+            validation_error_callback: Callback function for handling validation errors at the blueprint level.
             **kwargs: Flask Blueprint kwargs
         """
         super(APIBlueprint, self).__init__(name, import_name, **kwargs)
@@ -75,6 +77,9 @@ class APIBlueprint(APIScaffold, Blueprint):
 
         # Verify the response body
         self.validate_response = validate_response
+
+        # Set the validation error callback function
+        self.validation_error_callback = validation_error_callback
 
     def register_api(self, api: "APIBlueprint") -> None:
         """Register a nested APIBlueprint"""
