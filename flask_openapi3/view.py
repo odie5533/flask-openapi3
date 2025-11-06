@@ -204,10 +204,8 @@ class APIView:
         for rule, (cls, methods) in self.views.items():
             for method in methods:
                 func = getattr(cls, method.lower())
-                if func.validate_response is not None:
-                    _validate_response = func.validate_response
-                else:
-                    _validate_response = self.validate_response
+                _validate_response = getattr(func, "validate_response", None) or getattr(self, "validate_response", None)
+                _responses = getattr(func, "responses", None)
                 header, cookie, path, query, form, body, raw = parse_parameters(func, doc_ui=False)
                 view_func = app.create_view_func(
                     func,
@@ -220,7 +218,7 @@ class APIView:
                     raw,
                     view_class=cls,
                     view_kwargs=view_kwargs,
-                    responses=func.responses,
+                    responses=_responses,
                     validate_response=_validate_response,
                 )
 
