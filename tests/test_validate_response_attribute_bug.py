@@ -7,44 +7,21 @@ causing an AttributeError when trying to access func.validate_response during re
 """
 
 import pytest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from flask_openapi3 import APIView, Info, OpenAPI
 
 
-def test_view_without_doc_decorator():
-    """
-    Test that a view method without @doc() decorator doesn't cause AttributeError.
+class GoodResponse(BaseModel):
+    """Response with correct schema"""
 
-    This reproduces the bug reported in issue #246 where upgrading from 4.2.x to 4.3
-    causes AttributeError when a function doesn't have the validate_response attribute.
-    """
-    info = Info(title="test API", version="1.0.0")
-    app = OpenAPI(__name__, info=info)
-    app.config["TESTING"] = True
+    status: str
 
-    # Create APIView with validate_response enabled
-    api_view = APIView(validate_response=True)
 
-    class BookPath(BaseModel):
-        id: int = Field(..., description="book ID")
+class BadResponse(BaseModel):
+    """Response schema that doesn't match what we return"""
 
-    @api_view.route("/book/<id>")
-    class BookAPIView:
-        # This method does NOT use @api_view.doc() decorator
-        # In version 4.3, this causes: AttributeError: 'function' object has no attribute 'validate_response'
-        def get(self, path: BookPath):
-            return {"id": path.id}
-
-    # This should not raise AttributeError
-    # Before the fix, this would fail with:
-    # AttributeError: 'function' object has no attribute 'validate_response'
-    app.register_api_view(api_view)
-
-    # Verify the endpoint works
-    client = app.test_client()
-    resp = client.get("/book/123")
-    assert resp.status_code == 200
+    status: int  # We return str, but schema expects int
 
 
 def test_view_with_mixed_decorators():
@@ -88,6 +65,10 @@ def test_view_with_mixed_decorators():
 def test_view_validate_response_fallback():
     """
     Test that validate_response falls back correctly from function to APIView instance.
+    This test verifies that:
+    1. Methods without @doc() decorator use APIView's validate_response setting
+    2. Methods with @doc() but no validate_response param use APIView's setting
+    3. Methods with explicit validate_response=False override APIView's setting
     """
     info = Info(title="test API", version="1.0.0")
     app = OpenAPI(__name__, info=info)
@@ -99,23 +80,49 @@ def test_view_validate_response_fallback():
     @api_view.route("/test")
     class TestAPIView:
         # No decorator, should use APIView's validate_response=True
+        # This should trigger validation and raise error
         def get(self):
             return {"status": "ok"}
 
         # With decorator but validate_response=None, should use APIView's validate_response=True
-        @api_view.doc(summary="Post test")
+        # This should trigger validation and raise error
+        @api_view.doc(summary="Post test", responses={200: BadResponse})
         def post(self):
             return {"status": "ok"}
 
         # With decorator and validate_response=False, should use False
-        @api_view.doc(summary="Put test", validate_response=False)
+        # This should NOT trigger validation (no error)
+        @api_view.doc(summary="Put test", responses={200: BadResponse}, validate_response=False)
         def put(self):
             return {"status": "ok"}
 
-    # Should not raise AttributeError
+        # With decorator and validate_response=True and correct schema
+        # This should trigger validation and pass
+        @api_view.doc(summary="Patch test", responses={200: GoodResponse}, validate_response=True)
+        def patch(self):
+            return {"status": "ok"}
+
+    # Should not raise AttributeError during registration
     app.register_api_view(api_view)
 
     client = app.test_client()
-    assert client.get("/test").status_code == 200
-    assert client.post("/test").status_code == 200
-    assert client.put("/test").status_code == 200
+
+    # GET: no decorator, inherits APIView validate_response=True, but no response schema defined
+    # Should work fine (no validation when no response schema)
+    resp = client.get("/test")
+    assert resp.status_code == 200
+
+    # POST: has decorator, validate_response=None (inherits True), bad response schema
+    # Should raise ValidationError because response doesn't match schema
+    with pytest.raises(ValidationError):
+        client.post("/test")
+
+    # PUT: has decorator, validate_response=False, bad response schema
+    # Should NOT raise error because validation is disabled
+    resp = client.put("/test")
+    assert resp.status_code == 200
+
+    # PATCH: has decorator, validate_response=True, good response schema
+    # Should work fine because response matches schema
+    resp = client.patch("/test")
+    assert resp.status_code == 200
