@@ -224,6 +224,12 @@ class APIView:
                     validate_response=_validate_response,
                 )
 
+                # Apply class-level decorators if present
+                # Apply in reverse order so the first decorator in the list is the outermost
+                if hasattr(cls, "decorators"):
+                    for decorator in reversed(cls.decorators):
+                        view_func = decorator(view_func)
+
                 if url_prefix and self.url_prefix and url_prefix != self.url_prefix:
                     rule = url_prefix + rule.removeprefix(self.url_prefix)
                 elif url_prefix and not self.url_prefix:
