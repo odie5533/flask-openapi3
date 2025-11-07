@@ -224,8 +224,14 @@ class APIView:
                     validate_response=_validate_response,
                 )
 
-                # Apply class-level decorators if present
+                # Apply method-level decorators if present
                 # Apply in reverse order so the first decorator in the list is the outermost
+                if hasattr(func, "decorators"):
+                    for decorator in reversed(func.decorators):
+                        view_func = decorator(view_func)
+
+                # Apply class-level decorators if present
+                # These are applied after method decorators, making them outermost (run first)
                 if hasattr(cls, "decorators"):
                     for decorator in reversed(cls.decorators):
                         view_func = decorator(view_func)

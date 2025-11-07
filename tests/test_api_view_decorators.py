@@ -60,6 +60,27 @@ def require_auth_decorator(f):
     return decorated_function
 
 
+# Test admin auth decorator
+def require_admin_decorator(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from flask import request
+        admin_header = request.headers.get("X-Admin")
+        if not admin_header or admin_header != "admin-secret":
+            return {"error": "Forbidden - Admin required"}, 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# Helper function to add decorators to a method
+def with_decorators(*decorator_list):
+    """Decorator to attach decorators list to a method"""
+    def wrapper(f):
+        f.decorators = list(decorator_list)
+        return f
+    return wrapper
+
+
 class BookQuery(BaseModel):
     age: int | None = Field(None, description="Age")
 
@@ -149,12 +170,67 @@ class ProtectedAPIView:
         return f"created protected: {body.title}"
 
 
+# APIView with method-level decorators only
+api_view_method = APIView(url_prefix="/api/v6")
+
+
+@api_view_method.route("/items")
+class ItemAPIViewMethodDecorators:
+    @api_view_method.doc(summary="get items - no auth required")
+    def get(self, query: BookQuery):
+        return "public items list"
+
+    @with_decorators(require_auth_decorator)
+    @api_view_method.doc(summary="create item - auth required")
+    def post(self, body: BookBody):
+        return f"created item: {body.title}"
+
+    @with_decorators(require_admin_decorator)
+    @api_view_method.doc(summary="delete item - admin required")
+    def delete(self, query: BookQuery):
+        return "item deleted"
+
+
+# APIView with both class and method decorators to test order
+api_view_mixed = APIView(url_prefix="/api/v7")
+
+
+@api_view_mixed.route("/users")
+class UserAPIViewMixedDecorators:
+    # Class-level auth required for all methods
+    decorators = [require_auth_decorator]
+
+    @api_view_mixed.doc(summary="get user")
+    def get(self, query: BookQuery):
+        return "user data"
+
+    @with_decorators(require_admin_decorator)  # Method-level: also needs admin
+    @api_view_mixed.doc(summary="delete user - requires both auth and admin")
+    def delete(self, query: BookQuery):
+        return "user deleted"
+
+
+# APIView to test method decorator runs before validation
+api_view_method_validation = APIView(url_prefix="/api/v8")
+
+
+@api_view_method_validation.route("/secure")
+class SecureAPIViewMethodValidation:
+    @with_decorators(require_auth_decorator)
+    @api_view_method_validation.doc(summary="secure endpoint")
+    def post(self, body: BookBody):
+        return f"secure: {body.title}"
+
+
 # Register all API views
 app.register_api_view(api_view_single)
 app.register_api_view(api_view_multiple)
 app.register_api_view(api_view_none)
 app.register_api_view(api_view_counter)
 app.register_api_view(api_view_auth)
+app.register_api_view(api_view_method)
+app.register_api_view(api_view_mixed)
+app.register_api_view(api_view_method_validation)
 
 
 @pytest.fixture
@@ -321,3 +397,166 @@ def test_auth_decorator_valid_auth_valid_data(client):
     )
     assert response.status_code == 200
     assert "created protected: Protected Book" in response.data.decode()
+
+
+# Tests for method-level decorators
+
+
+def test_method_decorator_get_no_auth(client):
+    """Test GET method without decorator works without auth"""
+    response = client.get("/api/v6/items")
+    assert response.status_code == 200
+    assert response.data.decode() == "public items list"
+
+
+def test_method_decorator_post_needs_auth(client):
+    """Test POST method with decorator requires auth"""
+    response = client.post("/api/v6/items", json={"title": "Test Item"})
+    assert response.status_code == 401
+    data = response.get_json()
+    assert data["error"] == "Unauthorized"
+
+
+def test_method_decorator_post_with_auth(client):
+    """Test POST method with decorator succeeds with valid auth"""
+    response = client.post(
+        "/api/v6/items",
+        json={"title": "Test Item"},
+        headers={"Authorization": "Bearer valid-token"}
+    )
+    assert response.status_code == 200
+    assert "created item: Test Item" in response.data.decode()
+
+
+def test_method_decorator_delete_needs_admin(client):
+    """Test DELETE method with admin decorator requires admin header"""
+    response = client.delete("/api/v6/items")
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["error"] == "Forbidden - Admin required"
+
+
+def test_method_decorator_delete_with_admin(client):
+    """Test DELETE method with admin decorator succeeds with admin header"""
+    response = client.delete(
+        "/api/v6/items",
+        headers={"X-Admin": "admin-secret"}
+    )
+    assert response.status_code == 200
+    assert response.data.decode() == "item deleted"
+
+
+def test_method_decorator_runs_before_validation(client):
+    """
+    Test that method-level decorator runs BEFORE validation.
+    Send invalid data without auth - should get 401, not 422.
+    """
+    response = client.post(
+        "/api/v8/secure",
+        json={"invalid": "data"},  # Missing required 'title' field
+    )
+    # Should get 401 from auth decorator, not 422 from validation
+    assert response.status_code == 401
+    data = response.get_json()
+    assert data["error"] == "Unauthorized"
+
+
+def test_method_decorator_validation_after_auth(client):
+    """
+    Test that with valid auth, validation still occurs for method decorator.
+    """
+    response = client.post(
+        "/api/v8/secure",
+        json={"invalid": "data"},  # Missing required 'title' field
+        headers={"Authorization": "Bearer valid-token"}
+    )
+    # Should get 422 from validation since auth passed
+    assert response.status_code == 422
+
+
+# Tests for mixed class and method decorators
+
+
+def test_mixed_decorators_get_only_class(client):
+    """Test GET with only class-level auth decorator"""
+    response = client.get("/api/v7/users")
+    assert response.status_code == 401  # No auth header
+
+
+def test_mixed_decorators_get_with_auth(client):
+    """Test GET succeeds with class-level auth"""
+    response = client.get(
+        "/api/v7/users",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+    assert response.status_code == 200
+    assert response.data.decode() == "user data"
+
+
+def test_mixed_decorators_delete_needs_both(client):
+    """Test DELETE needs both auth (class) and admin (method)"""
+    # No headers - should fail at class-level auth
+    response = client.delete("/api/v7/users")
+    assert response.status_code == 401
+    data = response.get_json()
+    assert data["error"] == "Unauthorized"
+
+
+def test_mixed_decorators_delete_only_auth(client):
+    """Test DELETE with only auth header fails at method-level admin check"""
+    response = client.delete(
+        "/api/v7/users",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["error"] == "Forbidden - Admin required"
+
+
+def test_mixed_decorators_delete_only_admin(client):
+    """Test DELETE with only admin header fails at class-level auth check"""
+    response = client.delete(
+        "/api/v7/users",
+        headers={"X-Admin": "admin-secret"}
+    )
+    # Should fail at class-level auth, not method-level admin
+    assert response.status_code == 401
+    data = response.get_json()
+    assert data["error"] == "Unauthorized"
+
+
+def test_mixed_decorators_delete_with_both(client):
+    """Test DELETE succeeds with both auth and admin headers"""
+    response = client.delete(
+        "/api/v7/users",
+        headers={
+            "Authorization": "Bearer valid-token",
+            "X-Admin": "admin-secret"
+        }
+    )
+    assert response.status_code == 200
+    assert response.data.decode() == "user deleted"
+
+
+def test_mixed_decorators_order(client):
+    """
+    Test that class decorators run before method decorators.
+    When DELETE fails, it should fail at auth (class) before admin (method).
+    """
+    # With admin but no auth - should fail at class-level auth
+    response = client.delete(
+        "/api/v7/users",
+        headers={"X-Admin": "admin-secret"}
+    )
+    assert response.status_code == 401
+    # Confirms class decorator (auth) ran first
+
+
+def test_mixed_decorators_with_invalid_data(client):
+    """Test that decorators run before validation even with both class and method decorators"""
+    response = client.delete(
+        "/api/v7/users?age=invalid",  # Invalid query param
+        # No auth headers
+    )
+    # Should fail at class-level auth, not validation
+    assert response.status_code == 401
