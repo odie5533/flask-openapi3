@@ -79,8 +79,8 @@ def test_view_validate_response_fallback():
 
     @api_view.route("/test")
     class TestAPIView:
-        # No decorator, should use APIView's validate_response=True
-        # This should trigger validation and raise error
+        # No decorator, inherits APIView's validate_response=True
+        # But no response schema defined, so validation won't occur
         def get(self):
             return {"status": "ok"}
 
