@@ -196,6 +196,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -216,6 +217,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -250,6 +252,11 @@ class APIScaffold:
                 validate_response=_validate_response,
             )
 
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
+
             options.update({"methods": [HTTPMethod.GET]})
             self._add_url_rule(rule, view_func=view_func, **options)
 
@@ -273,6 +280,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -293,6 +301,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -327,6 +336,11 @@ class APIScaffold:
                 validate_response=_validate_response,
             )
 
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
+
             options.update({"methods": [HTTPMethod.POST]})
             self._add_url_rule(rule, view_func=view_func, **options)
 
@@ -350,6 +364,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -370,6 +385,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -404,6 +420,11 @@ class APIScaffold:
                 validate_response=_validate_response,
             )
 
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
+
             options.update({"methods": [HTTPMethod.PUT]})
             self._add_url_rule(rule, view_func=view_func, **options)
 
@@ -427,6 +448,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -447,6 +469,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -481,6 +504,11 @@ class APIScaffold:
                 validate_response=_validate_response,
             )
 
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
+
             options.update({"methods": [HTTPMethod.DELETE]})
             self._add_url_rule(rule, view_func=view_func, **options)
 
@@ -504,6 +532,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -524,6 +553,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -557,6 +587,11 @@ class APIScaffold:
                 responses=responses,
                 validate_response=_validate_response,
             )
+
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
 
             options.update({"methods": [HTTPMethod.PATCH]})
             self._add_url_rule(rule, view_func=view_func, **options)
