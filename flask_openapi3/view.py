@@ -116,6 +116,7 @@ class APIView:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
     ) -> Callable:
         """
         Decorator for view method.
@@ -134,6 +135,7 @@ class APIView:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this method (applied before validation).
         """
 
         new_responses = convert_responses_key_to_string(responses or {})
@@ -143,6 +145,10 @@ class APIView:
         def decorator(func):
             func.validate_response = validate_response
             func.responses = responses
+
+            # Store decorators on the function for later application
+            if decorators:
+                func.decorators = decorators
 
             if self.doc_ui is False or doc_ui is False:
                 return func
@@ -223,6 +229,18 @@ class APIView:
                     responses=func.responses,
                     validate_response=_validate_response,
                 )
+
+                # Apply method-level decorators if present
+                # Apply in reverse order so the first decorator in the list is the outermost
+                if hasattr(func, "decorators"):
+                    for decorator in reversed(func.decorators):
+                        view_func = decorator(view_func)
+
+                # Apply class-level decorators if present
+                # These are applied after method decorators, making them outermost (run first)
+                if hasattr(cls, "decorators"):
+                    for decorator in reversed(cls.decorators):
+                        view_func = decorator(view_func)
 
                 if url_prefix and self.url_prefix and url_prefix != self.url_prefix:
                     rule = url_prefix + rule.removeprefix(self.url_prefix)

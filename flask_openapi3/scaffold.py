@@ -71,6 +71,7 @@ class APIScaffold:
                 if hasattr(func, "__delay_validate_request__") and func.__delay_validate_request__ is True:
                     func_kwargs = kwargs
                 else:
+                    # Validate request with all kwargs (including potential decorator-injected ones)
                     func_kwargs = _validate_request(
                         header=header,
                         cookie=cookie,
@@ -81,6 +82,17 @@ class APIScaffold:
                         raw=raw,
                         path_kwargs=kwargs,
                     )
+
+                    # Add decorator-injected kwargs that match the function signature
+                    # Check which extra kwargs from decorators the function accepts
+                    import inspect as _inspect
+                    sig = _inspect.signature(func)
+                    func_param_names = set(sig.parameters.keys()) - {'self'}
+
+                    # Add any kwargs that are in the function signature but not in func_kwargs
+                    for key, value in kwargs.items():
+                        if key in func_param_names and key not in func_kwargs:
+                            func_kwargs[key] = value
 
                 # handle async request
                 if view_class:
@@ -114,6 +126,7 @@ class APIScaffold:
                 if hasattr(func, "__delay_validate_request__") and func.__delay_validate_request__ is True:
                     func_kwargs = kwargs
                 else:
+                    # Validate request with all kwargs (including potential decorator-injected ones)
                     func_kwargs = _validate_request(
                         header=header,
                         cookie=cookie,
@@ -124,6 +137,17 @@ class APIScaffold:
                         raw=raw,
                         path_kwargs=kwargs,
                     )
+
+                    # Add decorator-injected kwargs that match the function signature
+                    # Check which extra kwargs from decorators the function accepts
+                    import inspect as _inspect
+                    sig = _inspect.signature(func)
+                    func_param_names = set(sig.parameters.keys()) - {'self'}
+
+                    # Add any kwargs that are in the function signature but not in func_kwargs
+                    for key, value in kwargs.items():
+                        if key in func_param_names and key not in func_kwargs:
+                            func_kwargs[key] = value
 
                 # handle request
                 if view_class:
@@ -172,6 +196,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -192,6 +217,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -226,6 +252,11 @@ class APIScaffold:
                 validate_response=_validate_response,
             )
 
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
+
             options.update({"methods": [HTTPMethod.GET]})
             self._add_url_rule(rule, view_func=view_func, **options)
 
@@ -249,6 +280,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -269,6 +301,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -303,6 +336,11 @@ class APIScaffold:
                 validate_response=_validate_response,
             )
 
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
+
             options.update({"methods": [HTTPMethod.POST]})
             self._add_url_rule(rule, view_func=view_func, **options)
 
@@ -326,6 +364,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -346,6 +385,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -380,6 +420,11 @@ class APIScaffold:
                 validate_response=_validate_response,
             )
 
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
+
             options.update({"methods": [HTTPMethod.PUT]})
             self._add_url_rule(rule, view_func=view_func, **options)
 
@@ -403,6 +448,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -423,6 +469,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -457,6 +504,11 @@ class APIScaffold:
                 validate_response=_validate_response,
             )
 
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
+
             options.update({"methods": [HTTPMethod.DELETE]})
             self._add_url_rule(rule, view_func=view_func, **options)
 
@@ -480,6 +532,7 @@ class APIScaffold:
         openapi_extensions: dict[str, Any] | None = None,
         validate_response: bool | None = None,
         doc_ui: bool = True,
+        decorators: list[Callable] | None = None,
         **options: Any,
     ) -> Callable:
         """
@@ -500,6 +553,7 @@ class APIScaffold:
             openapi_extensions: Allows extensions to the OpenAPI Schema.
             doc_ui: Declares this operation to be shown. Default to True.
             validate_response: Verify the response body.
+            decorators: List of decorators to apply to this route (applied before validation).
         """
 
         def decorator(func) -> Callable:
@@ -533,6 +587,11 @@ class APIScaffold:
                 responses=responses,
                 validate_response=_validate_response,
             )
+
+            # Apply decorators if provided (in reverse order so first is outermost)
+            if decorators:
+                for dec in reversed(decorators):
+                    view_func = dec(view_func)
 
             options.update({"methods": [HTTPMethod.PATCH]})
             self._add_url_rule(rule, view_func=view_func, **options)
