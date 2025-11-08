@@ -1,44 +1,18 @@
 # -*- coding: utf-8 -*-
 # Test decorators on regular (non-APIView) routes
 
-from functools import wraps
-
 import pytest
 from pydantic import BaseModel, Field
 
 from flask_openapi3 import Info, OpenAPI
 
+# Import shared test decorators
+from conftest import inject_user_decorator, require_auth_decorator
+
 
 info = Info(title="Regular Route Decorator Test", version="1.0.0")
 app = OpenAPI(__name__, info=info)
 app.config["TESTING"] = True
-
-
-# Test decorators
-def require_auth_decorator(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        from flask import request
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or auth_header != "Bearer valid-token":
-            return {"error": "Unauthorized"}, 401
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-def inject_user_decorator(f):
-    """Decorator that injects authenticated user into view function"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        from flask import request
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or auth_header != "Bearer valid-token":
-            return {"error": "Unauthorized"}, 401
-        # Inject user object into kwargs
-        user = {"id": 456, "name": "Regular User"}
-        kwargs["user"] = user
-        return f(*args, **kwargs)
-    return decorated_function
 
 
 class BookQuery(BaseModel):
@@ -112,8 +86,8 @@ def test_regular_route_with_user_injection(client):
     assert response.status_code == 200
     data = response.get_json()
     assert data["title"] == "New Book"
-    assert data["created_by"] == "Regular User"
-    assert data["user_id"] == 456
+    assert data["created_by"] == "Test User"
+    assert data["user_id"] == 123
 
 
 def test_regular_route_injection_runs_before_validation(client):

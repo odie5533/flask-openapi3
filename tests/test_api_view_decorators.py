@@ -1,91 +1,26 @@
 # -*- coding: utf-8 -*-
 # Test class-level decorators for APIView
 
-from functools import wraps
-
 import pytest
 from pydantic import BaseModel, Field
 
 from flask_openapi3 import APIView, Info, OpenAPI
 
+# Import shared test decorators
+from conftest import (
+    add_header_decorator,
+    call_counter,
+    count_calls_decorator,
+    inject_user_decorator,
+    modify_response_decorator,
+    require_admin_decorator,
+    require_auth_decorator,
+)
+
 
 info = Info(title="Decorator Test API", version="1.0.0")
 app = OpenAPI(__name__, info=info)
 app.config["TESTING"] = True
-
-
-# Test decorator that adds a custom header
-def add_header_decorator(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        response = f(*args, **kwargs)
-        if isinstance(response, str):
-            return response, 200, {"X-Custom-Header": "DecoratorApplied"}
-        return response
-    return decorated_function
-
-
-# Test decorator that modifies the response
-def modify_response_decorator(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        response = f(*args, **kwargs)
-        if isinstance(response, str):
-            return f"Modified: {response}"
-        return response
-    return decorated_function
-
-
-# Test decorator that counts calls
-call_counter = {"count": 0}
-
-
-def count_calls_decorator(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        call_counter["count"] += 1
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-# Test auth decorator that checks a header and aborts before validation
-def require_auth_decorator(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        from flask import request
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or auth_header != "Bearer valid-token":
-            return {"error": "Unauthorized"}, 401
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-# Test admin auth decorator
-def require_admin_decorator(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        from flask import request
-        admin_header = request.headers.get("X-Admin")
-        if not admin_header or admin_header != "admin-secret":
-            return {"error": "Forbidden - Admin required"}, 403
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-# Decorator that injects a user object into the view function
-def inject_user_decorator(f):
-    """Decorator that injects authenticated user into view function"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        from flask import request
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or auth_header != "Bearer valid-token":
-            return {"error": "Unauthorized"}, 401
-        # Inject user object into kwargs
-        user = {"id": 123, "name": "Test User", "role": "admin"}
-        kwargs["user"] = user
-        return f(*args, **kwargs)
-    return decorated_function
 
 
 class BookQuery(BaseModel):
