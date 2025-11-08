@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from flask_openapi3 import Info, OpenAPI
 
 # Import shared test decorators
-from conftest import inject_user_decorator, require_auth_decorator
+from shared_decorators import inject_user_decorator, require_auth_decorator
 
 
 info = Info(title="Regular Route Decorator Test", version="1.0.0")

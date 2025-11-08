@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from flask_openapi3 import APIView, Info, OpenAPI
 
 # Import shared test decorators
-from conftest import (
+from shared_decorators import (
     add_header_decorator,
     call_counter,
     count_calls_decorator,
