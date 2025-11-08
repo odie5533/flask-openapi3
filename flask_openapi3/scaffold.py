@@ -71,6 +71,7 @@ class APIScaffold:
                 if hasattr(func, "__delay_validate_request__") and func.__delay_validate_request__ is True:
                     func_kwargs = kwargs
                 else:
+                    # Validate request with all kwargs (including potential decorator-injected ones)
                     func_kwargs = _validate_request(
                         header=header,
                         cookie=cookie,
@@ -81,6 +82,17 @@ class APIScaffold:
                         raw=raw,
                         path_kwargs=kwargs,
                     )
+
+                    # Add decorator-injected kwargs that match the function signature
+                    # Check which extra kwargs from decorators the function accepts
+                    import inspect as _inspect
+                    sig = _inspect.signature(func)
+                    func_param_names = set(sig.parameters.keys()) - {'self'}
+
+                    # Add any kwargs that are in the function signature but not in func_kwargs
+                    for key, value in kwargs.items():
+                        if key in func_param_names and key not in func_kwargs:
+                            func_kwargs[key] = value
 
                 # handle async request
                 if view_class:
@@ -114,6 +126,7 @@ class APIScaffold:
                 if hasattr(func, "__delay_validate_request__") and func.__delay_validate_request__ is True:
                     func_kwargs = kwargs
                 else:
+                    # Validate request with all kwargs (including potential decorator-injected ones)
                     func_kwargs = _validate_request(
                         header=header,
                         cookie=cookie,
@@ -124,6 +137,17 @@ class APIScaffold:
                         raw=raw,
                         path_kwargs=kwargs,
                     )
+
+                    # Add decorator-injected kwargs that match the function signature
+                    # Check which extra kwargs from decorators the function accepts
+                    import inspect as _inspect
+                    sig = _inspect.signature(func)
+                    func_param_names = set(sig.parameters.keys()) - {'self'}
+
+                    # Add any kwargs that are in the function signature but not in func_kwargs
+                    for key, value in kwargs.items():
+                        if key in func_param_names and key not in func_kwargs:
+                            func_kwargs[key] = value
 
                 # handle request
                 if view_class:

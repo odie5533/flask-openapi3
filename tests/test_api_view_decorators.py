@@ -72,13 +72,20 @@ def require_admin_decorator(f):
     return decorated_function
 
 
-# Helper function to add decorators to a method
-def with_decorators(*decorator_list):
-    """Decorator to attach decorators list to a method"""
-    def wrapper(f):
-        f.decorators = list(decorator_list)
-        return f
-    return wrapper
+# Decorator that injects a user object into the view function
+def inject_user_decorator(f):
+    """Decorator that injects authenticated user into view function"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from flask import request
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or auth_header != "Bearer valid-token":
+            return {"error": "Unauthorized"}, 401
+        # Inject user object into kwargs
+        user = {"id": 123, "name": "Test User", "role": "admin"}
+        kwargs["user"] = user
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 class BookQuery(BaseModel):
@@ -180,13 +187,11 @@ class ItemAPIViewMethodDecorators:
     def get(self, query: BookQuery):
         return "public items list"
 
-    @with_decorators(require_auth_decorator)
-    @api_view_method.doc(summary="create item - auth required")
+    @api_view_method.doc(summary="create item - auth required", decorators=[require_auth_decorator])
     def post(self, body: BookBody):
         return f"created item: {body.title}"
 
-    @with_decorators(require_admin_decorator)
-    @api_view_method.doc(summary="delete item - admin required")
+    @api_view_method.doc(summary="delete item - admin required", decorators=[require_admin_decorator])
     def delete(self, query: BookQuery):
         return "item deleted"
 
@@ -204,8 +209,7 @@ class UserAPIViewMixedDecorators:
     def get(self, query: BookQuery):
         return "user data"
 
-    @with_decorators(require_admin_decorator)  # Method-level: also needs admin
-    @api_view_mixed.doc(summary="delete user - requires both auth and admin")
+    @api_view_mixed.doc(summary="delete user - requires both auth and admin", decorators=[require_admin_decorator])
     def delete(self, query: BookQuery):
         return "user deleted"
 
@@ -216,10 +220,29 @@ api_view_method_validation = APIView(url_prefix="/api/v8")
 
 @api_view_method_validation.route("/secure")
 class SecureAPIViewMethodValidation:
-    @with_decorators(require_auth_decorator)
-    @api_view_method_validation.doc(summary="secure endpoint")
+    @api_view_method_validation.doc(summary="secure endpoint", decorators=[require_auth_decorator])
     def post(self, body: BookBody):
         return f"secure: {body.title}"
+
+
+# APIView to test decorator argument injection
+api_view_inject = APIView(url_prefix="/api/v9")
+
+
+@api_view_inject.route("/profile")
+class ProfileAPIViewWithInjection:
+    @api_view_inject.doc(summary="get user profile", decorators=[inject_user_decorator])
+    def get(self, query: BookQuery, user=None):
+        """View receives user object injected by decorator"""
+        return {"message": f"Profile for {user['name']}", "user_id": user["id"], "role": user["role"]}
+
+    @api_view_inject.doc(summary="update profile", decorators=[inject_user_decorator])
+    def post(self, body: BookBody, user=None):
+        """View receives both body and injected user"""
+        return {
+            "message": f"Updated {body.title} for user {user['name']}",
+            "user_id": user["id"]
+        }
 
 
 # Register all API views
@@ -231,6 +254,7 @@ app.register_api_view(api_view_auth)
 app.register_api_view(api_view_method)
 app.register_api_view(api_view_mixed)
 app.register_api_view(api_view_method_validation)
+app.register_api_view(api_view_inject)
 
 
 @pytest.fixture
@@ -479,3 +503,47 @@ def test_mixed_decorators_run_before_validation(client):
     # Invalid data, no auth - should fail at class auth, not validation
     response = client.delete("/api/v7/users?age=invalid")
     assert response.status_code == 401
+
+
+# Tests for decorator argument injection
+
+
+def test_decorator_injects_user_into_get(client):
+    """Test that decorator can inject user object into GET method"""
+    response = client.get(
+        "/api/v9/profile",
+        headers={"Authorization": "Bearer valid-token"}
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["message"] == "Profile for Test User"
+    assert data["user_id"] == 123
+    assert data["role"] == "admin"
+
+
+def test_decorator_injects_user_into_post(client):
+    """Test that decorator can inject user object into POST with body params"""
+    response = client.post(
+        "/api/v9/profile",
+        json={"title": "New Title"},
+        headers={"Authorization": "Bearer valid-token"}
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["message"] == "Updated New Title for user Test User"
+    assert data["user_id"] == 123
+
+
+def test_decorator_injection_fails_without_auth(client):
+    """Test that injecting decorator still enforces auth"""
+    response = client.get("/api/v9/profile")
+    assert response.status_code == 401
+    data = response.get_json()
+    assert data["error"] == "Unauthorized"
+
+
+def test_decorator_injection_runs_before_validation(client):
+    """Test that injecting decorator runs before validation"""
+    # Send invalid query param without auth
+    response = client.get("/api/v9/profile?age=invalid")
+    assert response.status_code == 401  # Auth fails before validation
